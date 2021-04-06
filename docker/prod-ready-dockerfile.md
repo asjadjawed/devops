@@ -96,6 +96,10 @@ LICENSE
 
 [How to write a .dockerignore file](https://stackoverflow.com/questions/25490911/how-do-you-add-items-to-dockerignore)
 
+## Structuring your project 🌳
+
+With Typescript Node.js project have a transpiling process. For this the project should be stored in such a way that the `build / dist`, `coverage`, `secrets`, `source / src` are arranged in such a way that they can be targeted effectively by `Dockerfile` & `.dockerignore`.
+
 ## Correct Images 🏞
 
 ```Dockerfile
