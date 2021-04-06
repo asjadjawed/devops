@@ -252,7 +252,7 @@ Updating the container os (e.g. `apt update`) creates inconsistent images (diffe
 
 ### Limit Memory
 
-Always configure a memory limit using both Docker.
+Always configure a memory limit using both Docker and the Orchestration tool such as K8s or ECS.
 
 🚨 Noisy and misbehaving containers will eat-up resources and starve the system of its resources.
 
