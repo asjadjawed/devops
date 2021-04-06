@@ -109,7 +109,7 @@ Using the `latest` tag doesn't guarantee the latest version is used (docker cach
 
 🚨 Large images lead have higher exposure to vulnerabilities (due to extra software installed) and increased space and network bandwidth consumption. Use lean Docker images, such as `Slim` or `Alpine` Linux variants.
 
-💡 For reference selecting the full version may lead to sizes in excess of `1GB` while optimized images can be as small as `100MB - 200MB`. Consider the difference in storing, transfer, loading of these images.
+💡 For reference selecting the full version may lead to sizes in excess of `1GB` while optimized images can be as small as `100MB - 200MB`. Consider the difference in storing, transfer, loading of these images. The Node.js v14.4.0 Docker image is `~345MB` in size versus `~39MB` for the Alpine version, which is almost `10x` smaller.
 
 ## Privilege Escalation 🔐
 
@@ -144,6 +144,8 @@ When using Container orchestrators (e.g., Kubernetes ☸), invoke the Node.js pr
 
 🚨 Container that crash will get restarted and K8s won't be able to optimally handle these containers.
 
+[Learn more about process signals inside containers](https://maximorlov.com/process-signals-inside-docker-containers/)
+
 ## Efficient caching 💽
 
 Rebuilding a whole docker image from cache can be nearly instantaneous if done correctly.
@@ -164,6 +166,8 @@ RUN yarn install --frozen-lockfile --production && yarn cache clean
 RUN npm ci --production && npm clean cache --force
 ```
 
+[Why npm ci should be used instead of npm install](https://docs.npmjs.com/cli/v7/commands/npm-ci)
+
 DevDependencies are needed during building and testing. The image that is shipped to production should be minimal and have no development dependencies.
 
 🚨 Only necessary code should be shipped, DevDependencies may have vulnerabilities of their own.
@@ -171,6 +175,44 @@ DevDependencies are needed during building and testing. The image that is shippe
 [Example of an attack through es-lint](https://eslint.org/blog/2018/07/postmortem-for-malicious-package-publishes)
 
 Please also ensure that the caches of package managers are also cleaned, these are required for quick re-installation, this isn't required in the case of containers, the caches have an extra copy of dependencies.
+
+[Yarn vs NPM Speed Comparisons](https://shift.infinite.red/yarn-1-vs-yarn-2-vs-npm-a69ccf0229cd)
+
+## Handling Secrets
+
+There are 2 methods for handling secrets in Docker:
+
+1. The best method is using Docker --secret feature (experimental as of July 2020) which allows mounting a file during build time only. Example usage:
+
+    ```Dockerfile
+    # syntax = docker/dockerfile:1.0-experimental
+    FROM node:14-slim
+    WORKDIR /usr/src/app
+    COPY package.json package-lock.json ./
+    RUN --mount=type=secret,id=npm,target=/root/.npmrc npm ci
+    # The rest of the docker file.
+    ```
+
+    [YouTube video explaining this feature](https://youtu.be/noHHEzqP6XA)
+
+2. The second uses multi-stage build with args. This still leaves secrets in Docker history.
+
+    ```Dockerfile
+    FROM node:14-slim AS build
+    ARG NPM_TOKEN
+    WORKDIR /usr/src/app
+    COPY . /dist
+    RUN echo "//registry.npmjs.org/:\_authToken=\$NPM_TOKEN" > .npmrc && \
+    npm ci --production && \
+    rm -f .npmrc
+
+    FROM build as prod
+    COPY --from=build /dist /dist
+    CMD ["node","index.js"]
+
+    # The ARG and .npmrc will not appear in the final image 
+    # But these can still be found in the Docker daemon un-tagged images list
+    ```
 
 ## Graceful Shutdown 🔌
 
@@ -180,7 +222,13 @@ Shutting down containers is not a rare event, due to the nature of container orc
 
 🚨 If not handled properly will result in users disconnecting or data corruption or unneeded connections to the Database.
 
+[Understanding Shutdown of Node Server](https://blog.risingstack.com/graceful-shutdown-node-js-kubernetes/)
+
 ## Other Tips 🍪
+
+### Scan Container images
+
+Before using any image ideally scan them for known vulnerabilities. Use tools like [Trivy](https://github.com/aquasecurity/trivy), or [Snyk](https://support.snyk.io/hc/en-us/articles/360003946897-Container-security-overview).
 
 ### Use Labels
 
@@ -208,3 +256,9 @@ Always configure a memory limit using both Docker.
 $ docker run --memory 512m my-node-app
 >> Loading program (with memory capped)
 ```
+
+### General Advice from Docker
+
+[General Advice for Writing Better Dockerfile(s)](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/#leverage-build-cache)
+
+Thank you for reading 👍
